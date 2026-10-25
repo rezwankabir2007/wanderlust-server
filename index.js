@@ -65,7 +65,15 @@ app.patch('/destination/:id', async(req,res)=>{
   res.json(result)
 })
 
-// http://localhost:8000/add-destination
+
+
+app.delete('/destination/:id',async(req,res)=>{
+  const {id}=req.params
+  const result = await destinationCollection.deleteOne({_id:new ObjectId(id)})
+  res.json(result)
+})
+
+// http://localhost:8000/destination/:id
 app.get('/', (req, res) => {
   res.send({massage: "Server is running fine!"})
 })
