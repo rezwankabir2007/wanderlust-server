@@ -28,6 +28,8 @@ const mongoClient = await connectToMongoDB();
 const db = mongoClient.db("wanderlust")
 const destinationCollection = db.collection("destination")
 
+const bookingCollection = db.collection('bookings')
+
 
 
 app.post('/add-destination',async(req,res)=>{
@@ -73,6 +75,33 @@ app.delete('/destination/:id',async(req,res)=>{
   res.json(result)
 })
 
+app.post('/booking', async(req,res)=>{
+  const data = req.body
+  const result = await bookingCollection.insertOne(data)
+  res.send(result)
+})
+
+
+
+app.get('/my-bookings/:email', async (req,res)=>{
+  const {email} = req.params
+  const result = await bookingCollection.find({email:email}).toArray()
+  res.send(result)
+})
+
+
+
+app.delete('/my-bookings/:id', async (req, res) => {
+  const { id } = req.params;
+
+  const result = await bookingCollection.deleteOne({
+    _id: new ObjectId(id)
+  });
+
+  res.send(result);
+});
+
+// http://localhost:8000/my-bookings/rezwan@gmail.com
 // http://localhost:8000/destination/:id
 app.get('/', (req, res) => {
   res.send({massage: "Server is running fine!"})
