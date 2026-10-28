@@ -5,15 +5,36 @@ import { MongoClient, ObjectId } from 'mongodb';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 
 const app = express();
-const port = 8000;
+const port = process.env.PORT || 8000;
 
-app.use(cors());
+// ✅ CORS কনফিগারেশন আপডেট করা হয়েছে (credentials & origins সহ)
+const allowedOrigins = [
+  'https://wanderlust-fontend.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 // JWKS external initialization to use caching
-const JWKS = createRemoteJWKSet(
-  new URL(`${process.env.CLIENT_URL}/api/auth/jwks`)
-);
+const jwksUrl = process.env.BETTER_AUTH_URL 
+  ? `${process.env.BETTER_AUTH_URL}/api/auth/jwks`
+  : `${process.env.CLIENT_URL || 'http://localhost:3000'}/api/auth/jwks`;
+
+const JWKS = createRemoteJWKSet(new URL(jwksUrl));
 
 const verifyApi = async (req, res, next) => {
   try {
@@ -24,7 +45,6 @@ const verifyApi = async (req, res, next) => {
       return res.status(401).send({ msg: 'Unauthorized: No token provided' });
     }
     
-    // Support both "Bearer <token>" and direct token string
     const token = authHeader.startsWith("Bearer ") 
       ? authHeader.split(" ")[1] 
       : authHeader;
@@ -33,13 +53,11 @@ const verifyApi = async (req, res, next) => {
       return res.status(401).send({ msg: "Unauthorized: Token missing" });
     }
 
-    // টোকেন ভেরিফিকেশন সঠিকভাবে হ্যান্ডেল করা
     const { payload } = await jwtVerify(token, JWKS);
-
     console.log("Verified Payload:", payload);
-    req.user = payload; // রিকোয়েস্টে ইউজার ডাটা যুক্ত করা হলো
+    req.user = payload;
 
-    next(); // সবকিছু ঠিক থাকলে পরবর্তী ধাপে যাবে
+    next();
   } catch (error) {
     console.error("JWT Verification Error:", error.message);
     return res.status(401).send({ msg: "Unauthorized: Invalid or expired token" });
@@ -63,7 +81,7 @@ const db = mongoClient.db("wanderlust");
 const destinationCollection = db.collection("destination");
 const bookingCollection = db.collection('bookings');
 
-app.post('/add-destination',async (req, res) => {
+app.post('/add-destination', async (req, res) => {
   const data = req.body;
   const result = await destinationCollection.insertOne(data);
   console.log(result);
@@ -109,13 +127,10 @@ app.get('/my-bookings/:email', async (req, res) => {
   res.send(result);
 });
 
-
-
-app.get('/featured-destinations', async (req,res)=>{
+app.get('/featured-destinations', async (req, res) => {
   const result = await destinationCollection.find().limit(5).toArray();
-  res.send(result)
-})
-
+  res.send(result);
+});
 
 app.delete('/my-bookings/:id', async (req, res) => {
   const { id } = req.params;
@@ -133,4 +148,4 @@ app.listen(port, () => {
   console.log(`Server is running at ${port}`);
 });
 
-export default app
+export default app;
